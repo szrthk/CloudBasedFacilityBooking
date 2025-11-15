@@ -19,6 +19,7 @@ public class FacilityService {
         this.repository = repository;
     }
 
+    @SuppressWarnings("null")
     public Facility createFacility(CreateFacilityRequest req) {
         if (repository.existsByName(req.name())) {
             throw new IllegalArgumentException("Facility name already exists");
@@ -38,6 +39,7 @@ public class FacilityService {
         return repository.save(facility);
     }
 
+    @SuppressWarnings("null")
     @NonNull
     public Facility updateFacility(String id, UpdateFacilityRequest req) {
         Facility facility = repository.findById(id)
@@ -62,6 +64,7 @@ public class FacilityService {
         return repository.save(facility);
     }
 
+    @SuppressWarnings("null")
     public void deleteFacility(String id) {
         repository.deleteById(id);
     }
@@ -70,6 +73,7 @@ public class FacilityService {
         return repository.findAll();
     }
 
+    @SuppressWarnings("null")
     public Facility getFacilityById(String id) {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Facility not found"));
