@@ -7,7 +7,6 @@ WORKDIR /app
 # Copy the built jar into the image
 # Change the JAR name if yours is different
 COPY target/CloudBasedFacilityBooking-0.0.1-SNAPSHOT.jar app.jar
-
 # Expose the port your app runs on
 EXPOSE 8080
 
