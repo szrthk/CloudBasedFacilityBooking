@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Booking Scanner</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    .card { max-width: 520px; padding: 1.5rem; border: 1px solid #ddd; border-radius: 8px; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; }
+    .result { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Verify Booking</h2>
+    <p>Paste booking id and QR signature to verify.</p>
+    <label for="bookingId">Booking ID</label>
+    <input id="bookingId" type="text" placeholder="booking id">
+    <label for="signature">Signature</label>
+    <input id="signature" type="text" placeholder="signature from QR payload">
+    <button id="verifyBtn">Verify</button>
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    document.getElementById('verifyBtn').addEventListener('click', async () => {
+      const bookingId = document.getElementById('bookingId').value.trim();
+      const signature = document.getElementById('signature').value.trim();
+      if (!bookingId || !signature) {
+        document.getElementById('result').innerText = 'Enter bookingId and signature';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/bookings/verify?bookingId=${encodeURIComponent(bookingId)}&signature=${encodeURIComponent(signature)}`);
+        const data = await res.json();
+        document.getElementById('result').innerText = data.valid ? `Valid: ${data.message}` : `Invalid: ${data.message}`;
+      } catch (e) {
+        document.getElementById('result').innerText = 'Error verifying booking';
+      }
+    });
+  </script>
+</body>
+</html>

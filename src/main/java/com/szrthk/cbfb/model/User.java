@@ -4,8 +4,6 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,17 +15,16 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Document("facilities")
-public class Facility {
+@Document("users")
+public class User {
 
     @Id
     private String id;
 
     @Indexed(unique = true)
-    private String name;
+    private String email;
 
-    private String description;
-    private String location;
+    private String password;
 
-    private List<String> slots;
+    private Role role;
 }

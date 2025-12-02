@@ -6,6 +6,23 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/fbs_simple}
 
+aws:
+  s3:
+    bucket-name: ${AWS_S3_BUCKET:fbs-qr-bucket}
+    region: ${AWS_REGION:ap-south-1}
+
+jwt:
+  # Must be at least 256 bits (32+ chars) for HMAC-SHA
+  secret: ${JWT_SECRET:7ce4b71b3c8e4b6f9d8a1c2f3e4d5c6b7a8e9f0d1c2b3a4f5d6e7c8b9a0f1e2}
+  expiration-ms: ${JWT_EXPIRATION:86400000}
+
+qr:
+  secret: ${QR_SECRET:qr-secret}
+
 logging:
   level:
     root: INFO
+
+# Bootstrap admin email: first registration with this email will be ADMIN
+admin:
+  bootstrap-email: ${BOOTSTRAP_ADMIN:admin@example.com}

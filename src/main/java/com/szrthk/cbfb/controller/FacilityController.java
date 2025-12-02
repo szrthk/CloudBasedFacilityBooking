@@ -21,7 +21,7 @@ public class FacilityController {
 
     @GetMapping
     public List<FacilityResponse> getAll() {
-        return service.getAllFacilities()
+        return service.findAll()
                 .stream()
                 .map(FacilityResponse::from)
                 .toList();
@@ -29,6 +29,6 @@ public class FacilityController {
 
     @GetMapping("/{id}")
     public FacilityResponse getById(@PathVariable String id) {
-        return FacilityResponse.from(service.getFacilityById(id));
+        return FacilityResponse.from(service.findById(id));
     }
 }

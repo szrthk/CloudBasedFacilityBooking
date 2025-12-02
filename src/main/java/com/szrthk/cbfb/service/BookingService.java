@@ -1,124 +1,177 @@
 package com.szrthk.cbfb.service;
 
-import java.time.LocalTime;
-import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import com.szrthk.cbfb.dto.AvailabilityResponse;
+import com.szrthk.cbfb.dto.BookingRequest;
+import com.szrthk.cbfb.dto.VerifyResponse;
 import com.szrthk.cbfb.model.Booking;
 import com.szrthk.cbfb.model.Facility;
-import com.szrthk.cbfb.repositery.BookingRepository;
-import com.szrthk.cbfb.repositery.FacilityRepository;
-import com.szrthk.cbfb.dto.CreateBookingRequest;
-import com.szrthk.cbfb.dto.AvailabilityResponse;
-import com.szrthk.cbfb.dto.SlotResponse;
+import com.szrthk.cbfb.repository.BookingRepository;
+import com.szrthk.cbfb.repository.FacilityRepository;
+import com.szrthk.cbfb.util.SlotConstants;
 
 @Service
 public class BookingService {
 
     private final FacilityRepository facilityRepository;
     private final BookingRepository bookingRepository;
+    private final QrService qrService;
+    private final S3Service s3Service;
+    private final String qrSecret;
 
     public BookingService(FacilityRepository facilityRepository,
-                          BookingRepository bookingRepository) {
+                          BookingRepository bookingRepository,
+                          QrService qrService,
+                          S3Service s3Service,
+                          @Value("${qr.secret:qr-secret}") String qrSecret) {
         this.facilityRepository = facilityRepository;
         this.bookingRepository = bookingRepository;
+        this.qrService = qrService;
+        this.s3Service = s3Service;
+        this.qrSecret = qrSecret;
     }
 
     public AvailabilityResponse getAvailability(String facilityId, String date) {
-        @SuppressWarnings("null")
+        if (facilityId == null || date == null) {
+            throw new IllegalArgumentException("Facility ID and date are required");
+        }
+        
         Facility facility = facilityRepository.findById(facilityId)
                 .orElseThrow(() -> new IllegalArgumentException("Facility not found"));
 
-        int slotMinutes = facility.getSlotDurationMinutes();
-        LocalTime open = LocalTime.parse(facility.getOpenTime());
-        LocalTime close = LocalTime.parse(facility.getCloseTime());
+        List<String> definedSlots = facility.getSlots() != null && !facility.getSlots().isEmpty()
+                ? facility.getSlots()
+                : SlotConstants.SLOTS;
 
-        // find all bookings for that day
-        List<Booking> bookings = bookingRepository
-                .findByFacilityIdAndDate(facilityId, date);
-
-        // map of booked startTime -> true
-        Set<String> bookedStarts = bookings.stream()
-                .map(Booking::getStartTime)
+        List<Booking> bookings = bookingRepository.findByFacilityIdAndDate(facilityId, date);
+        Set<String> booked = bookings.stream()
+                .map(Booking::getSlot)
+                .filter(slot -> slot != null)
                 .collect(Collectors.toSet());
 
-        List<SlotResponse> slots = new ArrayList<>();
+        List<String> available = definedSlots.stream()
+                .filter(slot -> slot != null && !booked.contains(slot))
+                .toList();
 
-        LocalTime current = open;
-        while (current.plusMinutes(slotMinutes).compareTo(close) <= 0) {
-            LocalTime end = current.plusMinutes(slotMinutes);
-            String startStr = current.toString(); // default format HH:mm
-            String endStr = end.toString();
-
-            boolean booked = bookedStarts.contains(startStr);
-            slots.add(new SlotResponse(startStr, endStr, booked));
-
-            current = end;
-        }
-
-        return new AvailabilityResponse(
-                facilityId,
-                date,
-                slotMinutes,
-                slots
-        );
+        return new AvailabilityResponse(available, new ArrayList<>(booked));
     }
 
     @SuppressWarnings("null")
-    public Booking createBooking(CreateBookingRequest req) {
+    public Booking createBooking(BookingRequest request) {
+        if (request == null || request.facilityId() == null || request.date() == null || 
+            request.slot() == null || request.userEmail() == null) {
+            throw new IllegalArgumentException("All booking details are required");
+        }
+
         @SuppressWarnings("null")
-        Facility facility = facilityRepository.findById(req.facilityId())
+        Facility facility = facilityRepository.findById(request.facilityId())
                 .orElseThrow(() -> new IllegalArgumentException("Facility not found"));
 
-        int slotMinutes = facility.getSlotDurationMinutes();
-        LocalTime open = LocalTime.parse(facility.getOpenTime());
-        LocalTime close = LocalTime.parse(facility.getCloseTime());
-        LocalTime start = LocalTime.parse(req.startTime());
-        LocalTime end = start.plusMinutes(slotMinutes);
+        List<String> allowedSlots = facility.getSlots() != null && !facility.getSlots().isEmpty()
+                ? facility.getSlots()
+                : SlotConstants.SLOTS;
 
-        // 1) check within working hours
-        if (start.isBefore(open) || end.isAfter(close)) {
-            throw new IllegalArgumentException("Requested time is outside facility hours");
+        if (request.slot() == null || !allowedSlots.contains(request.slot())) {
+            throw new IllegalArgumentException("Invalid or missing slot selection");
         }
 
-        // 2) check aligns to slot size (multiple of slotMinutes from open)
-        long minutesFromOpen = java.time.Duration.between(open, start).toMinutes();
-        if (minutesFromOpen % slotMinutes != 0) {
-            throw new IllegalArgumentException("Requested time is not aligned to slot duration");
-        }
-
-        // 3) check not already booked
-        List<Booking> existing = bookingRepository
-                .findByFacilityIdAndDate(req.facilityId(), req.date());
-        boolean conflict = existing.stream()
-                .anyMatch(b -> b.getStartTime().equals(req.startTime()));
+        boolean conflict = bookingRepository
+                .existsByFacilityIdAndDateAndSlot(request.facilityId(), request.date(), request.slot());
         if (conflict) {
             throw new IllegalArgumentException("Slot already booked");
         }
 
+        String signature = generateSignature(request.facilityId(), request.date(), request.slot(), request.userEmail());
+        String payload = buildPayload(request, signature);
+        byte[] qrBytes = qrService.generateQrBytes(payload);
+        String fileName = String.format("%s_%s_%s.png", 
+            request.facilityId(), 
+            request.date(), 
+            request.slot().replace(':', '-'));
+        String qrUrl = s3Service.upload(qrBytes, fileName);
+
         Booking booking = Booking.builder()
-                .facilityId(req.facilityId())
-                .userName(req.userName())
-                .userEmail(req.userEmail())
-                .date(req.date())
-                .startTime(req.startTime())
+                .facilityId(request.facilityId())
+                .userEmail(request.userEmail())
+                .date(request.date())
+                .slot(request.slot())
+                .qrSignature(signature)
+                .qrUrl(qrUrl)
                 .build();
 
         return bookingRepository.save(booking);
     }
 
-    public List<Booking> getBookingsForUser(String userEmail) {
+    public VerifyResponse verifyBooking(String bookingId, String signature) {
+        if (bookingId == null || signature == null) {
+            return new VerifyResponse(false, "Booking ID and signature are required");
+        }
+        
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+                
+        if (booking.getFacilityId() == null || booking.getDate() == null || 
+            booking.getSlot() == null || booking.getUserEmail() == null) {
+            return new VerifyResponse(false, "Invalid booking data");
+        }
+        
+        String expected = generateSignature(
+            booking.getFacilityId(), 
+            booking.getDate(), 
+            booking.getSlot(), 
+            booking.getUserEmail());
+            
+        boolean valid = expected != null && expected.equals(signature);
+        return new VerifyResponse(valid, valid ? "Booking is valid" : "Invalid booking signature");
+    }
+
+    public List<Booking> findByUserEmail(String userEmail) {
+        if (userEmail == null) {
+            throw new IllegalArgumentException("User email is required");
+        }
         return bookingRepository.findByUserEmail(userEmail);
     }
 
-    @SuppressWarnings("null")
+    public List<Booking> findAll() {
+        return bookingRepository.findAll();
+    }
+
     public void cancelBooking(String id) {
+        if (id == null) {
+            throw new IllegalArgumentException("Booking ID is required");
+        }
         bookingRepository.deleteById(id);
     }
 
-    // admin utility
-    public List<Booking> getAllBookings() {
-        return bookingRepository.findAll();
+    private String buildPayload(BookingRequest request, String signature) {
+        return "facilityId=" + request.facilityId() +
+                ";date=" + request.date() +
+                ";slot=" + request.slot() +
+                ";userEmail=" + request.userEmail() +
+                ";signature=" + signature;
+    }
+
+    private String generateSignature(String facilityId, String date, String slot, String userEmail) {
+        try {
+            String payload = facilityId + "|" + date + "|" + slot + "|" + userEmail;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(qrSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] digest = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to generate QR signature", e);
+        }
     }
 }

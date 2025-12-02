@@ -5,7 +5,7 @@ FROM eclipse-temurin:21-jdk-alpine
 WORKDIR /app
 
 # Copy the built jar into the image
-# Change the JAR name if yours is different
+# Change the JAR name if yours is differentsudo dnf install -y git
 COPY target/CloudBasedFacilityBooking-0.0.1-SNAPSHOT.jar app.jar
 # Expose the port your app runs on
 EXPOSE 8080

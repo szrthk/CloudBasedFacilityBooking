@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facility Booking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent2: #14b8a6;
+      --border: #e5e7eb;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.06);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      background: radial-gradient(circle at 20% 20%, #e0f2fe, transparent 30%),
+                  radial-gradient(circle at 80% 0%, #ecfeff, transparent 35%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 28px 28px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title { font-weight: 700; letter-spacing: -0.02em; }
+    .chip { background: #eef2ff; color: #4338ca; padding: 6px 10px; border-radius: 10px; font-size: 12px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      padding: 18px 28px 32px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    label { display: block; margin: 8px 0 4px; font-size: 13px; color: var(--muted); }
+    input, textarea, select {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: #f9fafb;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 12px; padding: 10px 14px;
+      border: none; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .pill {
+      display: inline-flex; align-items: center;
+      gap: 6px; padding: 6px 10px; border-radius: 999px;
+      background: #f1f5f9; font-size: 12px;
+    }
+    .list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .item {
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+      display: flex; flex-direction: column; gap: 4px; background: #f8fafc;
+    }
+    .status { color: #10b981; font-weight: 600; font-size: 13px; }
+    .danger { color: #dc2626; cursor: pointer; font-size: 13px; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 12px; font-size: 12px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="title">Facility Booking</div>
+      <div class="muted">Minimal panel to exercise the API</div>
+    </div>
+    <div class="chip" id="authState">Not authenticated</div>
+  </header>
+
+  <div class="card" style="margin: 0 28px 12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <div style="flex:1; min-width:260px;">
+      <label style="margin:0 0 6px; font-size:12px; color:var(--muted);">API Base URL</label>
+      <input id="baseUrl" placeholder="http://localhost:8080">
+    </div>
+    <div class="row" style="gap:12px;">
+      <button onclick="applyBaseUrl()" style="margin-top:0;">Set Base</button>
+      <button onclick="logout()" style="margin-top:0; background:linear-gradient(135deg,#0f172a,#1f2937)">Logout</button>
+    </div>
+    <div class="muted" id="tokenPreview" style="flex:1; min-width:260px;">No token</div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Auth</h2>
+      <label>Email</label>
+      <input id="email" type="email" placeholder="you@example.com">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••">
+      <div class="row">
+        <button onclick="register()">Register</button>
+        <button onclick="login()">Login</button>
+      </div>
+      <div class="muted" id="authMsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>Create Facility (admin)</h2>
+      <label>Name</label><input id="facName">
+      <label>Description</label><textarea id="facDesc" rows="2"></textarea>
+      <label>Location</label><input id="facLoc">
+      <label>Slots (comma separated)</label><input id="facSlots" placeholder="09:00-10:00,10:00-11:00">
+      <button onclick="createFacility()">Create Facility</button>
+      <div class="muted" id="facMsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>Promote User (admin)</h2>
+      <label>Email to promote</label><input id="promoEmail" placeholder="user@example.com">
+      <button onclick="promote()">Promote to ADMIN</button>
+      <div class="muted" id="promoMsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>Facilities</h2>
+      <button onclick="loadFacilities()">Refresh</button>
+      <div class="list" id="facilities"></div>
+    </section>
+
+    <section class="card">
+      <h2>Check Availability</h2>
+      <label>Facility ID</label><input id="availFac">
+      <label>Date (yyyy-MM-dd)</label><input id="availDate" placeholder="2025-01-01">
+      <button onclick="checkAvailability()">Check</button>
+      <div class="list" id="availability"></div>
+    </section>
+
+    <section class="card">
+      <h2>Create Booking</h2>
+      <label>Facility ID</label><input id="bookFac">
+      <label>Your Email</label><input id="bookEmail">
+      <label>Date (yyyy-MM-dd)</label><input id="bookDate" placeholder="2025-01-01">
+      <label>Slot</label><input id="bookSlot" placeholder="09:00-10:00">
+      <button onclick="createBooking()">Book</button>
+      <div class="muted" id="bookMsg"></div>
+    </section>
+
+    <section class="card">
+      <h2>My Bookings</h2>
+      <label>Your Email</label><input id="myEmail">
+      <button onclick="loadMyBookings()">Load</button>
+      <div class="list" id="myBookings"></div>
+    </section>
+
+    <section class="card" style="grid-column: 1/-1;">
+      <h2>Debug</h2>
+      <pre id="debugLog">Ready</pre>
+    </section>
+  </div>
+
+  <script>
+    let base = localStorage.getItem('apiBase') || window.location.origin;
+    document.getElementById('baseUrl').value = base;
+    let token = localStorage.getItem('jwt') || null;
+    const authState = document.getElementById('authState');
+    updateAuthState();
+
+    async function api(path, opts = {}) {
+      const headers = opts.headers || {};
+      headers['Content-Type'] = 'application/json';
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const res = await fetch(base + path, {...opts, headers});
+      const txt = await res.text();
+      let data;
+      try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
+      if (!res.ok) {
+        log(`Error ${res.status} ${res.statusText}: ${txt}`);
+        throw new Error(typeof data === 'string' ? data : (data?.message || res.statusText));
+      }
+      log(`OK ${res.status} ${path}`);
+      return data;
+    }
+
+    function updateAuthState() {
+      authState.textContent = token ? 'Authenticated' : 'Not authenticated';
+      const preview = token ? token.slice(0, 12) + '...' : 'No token';
+      document.getElementById('tokenPreview').textContent = 'Token: ' + preview;
+    }
+
+    function applyBaseUrl() {
+      base = val('baseUrl') || window.location.origin;
+      localStorage.setItem('apiBase', base);
+      setMsg('authMsg', 'Base set to ' + base);
+      log('Base URL set to ' + base);
+    }
+
+    function logout() {
+      token = null;
+      localStorage.removeItem('jwt');
+      updateAuthState();
+      setMsg('authMsg', 'Logged out');
+    }
+
+    async function register() {
+      setMsg('authMsg', '');
+      const email = val('email'), password = val('password');
+      try {
+        const res = await api('/api/v1/auth/register', {method:'POST', body: JSON.stringify({email, password})});
+        token = res.token; localStorage.setItem('jwt', token); updateAuthState();
+        setMsg('authMsg', 'Registered & logged in');
+        log('Registered ' + email);
+      } catch (e) { setMsg('authMsg', e.message); }
+    }
+
+    async function login() {
+      setMsg('authMsg', '');
+      const email = val('email'), password = val('password');
+      try {
+        const res = await api('/api/v1/auth/login', {method:'POST', body: JSON.stringify({email, password})});
+        token = res.token; localStorage.setItem('jwt', token); updateAuthState();
+        setMsg('authMsg', 'Logged in');
+        log('Logged in ' + email);
+      } catch (e) { setMsg('authMsg', e.message); }
+    }
+
+    async function promote() {
+      setMsg('promoMsg', '');
+      const email = val('promoEmail');
+      try {
+        await api(`/api/admin/users/promote?email=${encodeURIComponent(email)}`, {method:'POST'});
+        setMsg('promoMsg', 'Promoted to ADMIN');
+      } catch (e) { setMsg('promoMsg', e.message); }
+    }
+
+    async function createFacility() {
+      setMsg('facMsg', '');
+      const name = val('facName'), description = val('facDesc'), location = val('facLoc');
+      const slots = val('facSlots').split(',').map(s => s.trim()).filter(Boolean);
+      try {
+        await api('/api/facilities', {method:'POST', body: JSON.stringify({name, description, location, slots})});
+        setMsg('facMsg', 'Created facility');
+        loadFacilities();
+        log('Created facility ' + name);
+      } catch (e) { setMsg('facMsg', e.message); }
+    }
+
+    async function loadFacilities() {
+      const box = document.getElementById('facilities'); box.innerHTML = 'Loading...';
+      try {
+        const data = await api('/api/facilities');
+        box.innerHTML = '';
+        data.forEach(f => {
+          const div = document.createElement('div'); div.className = 'item';
+          div.innerHTML = `<strong>${f.name}</strong><span class="muted">${f.location}</span><div class="row">${(f.slots||[]).map(s => `<span class="pill">${s}</span>`).join('')}</div><div class="muted">ID: ${f.id}</div>`;
+          box.appendChild(div);
+        });
+        if (!data.length) box.innerHTML = '<div class="muted">No facilities</div>';
+        log('Loaded facilities: ' + data.length);
+      } catch (e) { box.innerHTML = e.message; }
+    }
+
+    async function checkAvailability() {
+      const fac = val('availFac'), date = val('availDate');
+      const box = document.getElementById('availability'); box.innerHTML = 'Loading...';
+      try {
+        const res = await api(`/api/facilities/${fac}/availability?date=${encodeURIComponent(date)}`);
+        box.innerHTML = '';
+        box.innerHTML += `<div class="status">Available</div>`;
+        box.innerHTML += `<div class="row">${res.availableSlots.map(s => `<span class="pill">${s}</span>`).join('')}</div>`;
+        box.innerHTML += `<div class="muted" style="margin-top:8px;">Booked</div>`;
+        box.innerHTML += `<div class="row">${res.bookedSlots.map(s => `<span class="pill">${s}</span>`).join('')}</div>`;
+        log('Availability checked for ' + fac + ' on ' + date);
+      } catch (e) { box.innerHTML = e.message; log(e.message); }
+    }
+
+    async function createBooking() {
+      setMsg('bookMsg', '');
+      const body = {
+        facilityId: val('bookFac'),
+        userEmail: val('bookEmail'),
+        date: val('bookDate'),
+        slot: val('bookSlot')
+      };
+      try {
+        const res = await api('/api/bookings/create', {method:'POST', body: JSON.stringify(body)});
+        setMsg('bookMsg', 'Booked. ID: ' + res.id);
+        log('Booking created ' + res.id);
+      } catch (e) { setMsg('bookMsg', e.message); }
+    }
+
+    async function loadMyBookings() {
+      const email = val('myEmail');
+      const box = document.getElementById('myBookings'); box.innerHTML = 'Loading...';
+      try {
+        const data = await api(`/api/bookings/my?userEmail=${encodeURIComponent(email)}`);
+        box.innerHTML = '';
+        data.forEach(b => {
+          const div = document.createElement('div'); div.className = 'item';
+          div.innerHTML = `<strong>${b.facilityId}</strong><span class="muted">${b.date} • ${b.slot}</span><span class="muted">${b.qrUrl || ''}</span>`;
+          box.appendChild(div);
+        });
+        if (!data.length) box.innerHTML = '<div class="muted">No bookings</div>';
+        log('Loaded bookings for ' + email + ': ' + data.length);
+      } catch (e) { box.innerHTML = e.message; }
+    }
+
+    function val(id) { return document.getElementById(id).value.trim(); }
+    function setMsg(id, msg) { document.getElementById(id).textContent = msg; }
+    function log(msg) {
+      const box = document.getElementById('debugLog');
+      const now = new Date().toLocaleTimeString();
+      box.textContent = `[${now}] ${msg}\n` + box.textContent.slice(0, 2000);
+    }
+
+    // initial load
+    loadFacilities();
+  </script>
+</body>
+</html>

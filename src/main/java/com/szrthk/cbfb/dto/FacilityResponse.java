@@ -7,9 +7,7 @@ public record FacilityResponse(
         String name,
         String description,
         String location,
-        String openTime,
-        String closeTime,
-        int slotDurationMinutes
+        java.util.List<String> slots
 ) {
     public static FacilityResponse from(Facility f) {
         return new FacilityResponse(
@@ -17,9 +15,7 @@ public record FacilityResponse(
                 f.getName(),
                 f.getDescription(),
                 f.getLocation(),
-                f.getOpenTime(),
-                f.getCloseTime(),
-                f.getSlotDurationMinutes()
+                f.getSlots()
         );
     }
 }

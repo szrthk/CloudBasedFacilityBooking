@@ -1,6 +1,10 @@
 package com.szrthk.cbfb.model;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -12,8 +16,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Builder
 @Document("bookings")
 @CompoundIndex(
-        name = "facility_date_start_idx",
-        def = "{'facilityId': 1, 'date': 1, 'startTime': 1}",
+        name = "facility_date_slot_idx",
+        def = "{'facilityId': 1, 'date': 1, 'slot': 1}",
         unique = true
 )
 public class Booking {
@@ -23,12 +27,13 @@ public class Booking {
 
     private String facilityId;
 
-    private String userName;
     private String userEmail;
 
     // yyyy-MM-dd
     private String date;
 
-    // HH:mm
-    private String startTime;
+    private String slot;
+
+    private String qrUrl;
+    private String qrSignature;
 }
