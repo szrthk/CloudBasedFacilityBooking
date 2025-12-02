@@ -4,7 +4,7 @@ server:
 spring:
   data:
     mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/fbs_simple}
+      uri: ${MONGODB_URI:mongodb://localhost:27017/fbs_db}
 
 aws:
   s3:
